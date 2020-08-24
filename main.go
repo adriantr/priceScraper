@@ -1,116 +1,54 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
-	"log"
-	"github.com/PuerkitoBio/goquery"
-	"strings"
-	"reflect"
-	"strconv"
-	"productScraper"
+	"priceScraper/Coop"
+	"priceScraper/Interfaces"
+	"priceScraper/Kolonial"
+	"priceScraper/Meny"
+
+	"github.com/sahilm/fuzzy"
 )
 
-type Product struct {
-	ean string
-	name string
-	price string
-	img string
-}
-
-var links []string;
-var products []Product;
-
 func main() {
+	allProducts := Interfaces.AllProducts{}
+	meny := Meny.Meny{}
+	coop := Coop.Coop{}
+	kolonial := Kolonial.Kolonial{}
 
-	response, err := http.Get("https://meny.no/WSPager?categorySlug1=&categorySlug2=&categorySlug3=&categorySlug4=&offersOnly=false&page=1&pageSize=10&query=&sort=&allergens=&fallbackBestSales=true&addHouseHoldId=true&id=&oftenBought=true&blockId=Ofte-kj%c3%b8pt+blokk")
+	menyDoc := Interfaces.HTMLScraper.GetDoc(meny)
+	allProducts.Meny = Interfaces.HTMLScraper.ReturnProducts(meny, menyDoc)
 
-	if err != nil {
-		fmt.Print("Naaah")
-	} else {
+	coopCat := Interfaces.APIScraper.GetCategories(coop)
+	allProducts.Coop = Interfaces.APIScraper.GetProducts(coop, coopCat)
 
-		doc, err := goquery.NewDocumentFromReader(response.Body);
+	kolonialDoc := Interfaces.HTMLScraper.GetDoc(kolonial)
+	allProducts.Kolonial = Interfaces.HTMLScraper.ReturnProducts(kolonial, kolonialDoc)
 
-		if err != nil {
-			log.Fatal(err);
-		}
+	guessKolonialGtin(&allProducts)
 
-		doc.Find(".cw-product__link").Each(func(i int, s *goquery.Selection) {
-			link, exists := s.Attr("href")
-			if exists == true {
-
-				if !itemExists(links, link) {
-					links = append(links, link)
-					visitProduct(link)
-				}
-			} else {
-				fmt.Print("no link")
-			}
-			
-		})
-
-		fmt.Print(products)
-
-	}
+	//AZBus.SendToAzure(&allProducts)
 }
 
-func visitProduct (link string) {
-	var product Product
+type products []Interfaces.Product
 
-	response, err := http.Get(link)
-
-	if err != nil {
-		fmt.Print("Cannot access product")
-	}
-
-	doc, err := goquery.NewDocumentFromReader(response.Body);
-
-	if err != nil {
-		log.Fatal(err);
-	}
-
-	art := strings.TrimSpace(doc.Find(".cw-product-detail__title").Text())
-	txt := strings.Split(art, "\n")
-	product.name = string(txt[0]) + string(" - ") + string(txt[2])
-
-	kroner := doc.Find(".cw-product__prices .cw-product__price__main").First().Text()
-	ore := doc.Find(".cw-product__prices .cw-product__price__cents").First().Text();
-
-	kronerInt, _ := strconv.Atoi(kroner)
-
-	if kronerInt > 0 {
-		product.price = kroner+","+ore
-	} else {
-		product.price = kroner
-	}
-
-	ean := strings.Split(link, "-");
-
-	product.ean = ean[len(ean)-1]
-
-	doc.Find("meta").Each(func(i int, s *goquery.Selection) {
-		if name, _ := s.Attr("property"); name == "og:image" {
-			img, _ := s.Attr("content")
-			product.img = img
-		}
-	})
-
-	products = append(products, product)
-
+func (p products) String(i int) string {
+	return p[i].Name
+}
+func (p products) Len() int {
+	return len(p)
 }
 
-func itemExists(slice interface{}, item interface{}) bool {
-	s := reflect.ValueOf(slice)
+func guessKolonialGtin(prods *Interfaces.AllProducts) {
+	var all products
 
-	if s.Kind() != reflect.Slice {
-		panic("Invalid data-type")
-	}
+	all = append(all, prods.Coop...)
+	all = append(all, prods.Meny...)
 
-	for i := 0; i < s.Len(); i++ {
-		if s.Index(i).Interface() == item {
-			return true
+	for _, product := range prods.Kolonial {
+		results := fuzzy.FindFrom(product.Name, all)
+		if len(results) > 0 {
+			product.Ean = all[results[0].Index].Ean
 		}
 	}
 
-	return false
 }
