@@ -1,2 +1,4 @@
 # priceScraper
-Price scraper
+Price scraper for Kolonial, Meny and Coop.
+
+
