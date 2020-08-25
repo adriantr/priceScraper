@@ -25,7 +25,7 @@ func (m Meny) GetDoc() []*goquery.Document {
 		url := "https://meny.no/WSPager?categorySlug1=&categorySlug2=&categorySlug3=&categorySlug4=&offersOnly=false&page=#&pageSize=200&query=&sort=&allergens=&fallbackBestSales=false&addHouseHoldId=false&id=&oftenBought=false&blockId=Ofte-kj%c3%b8pt+blokk"
 
 		url = strings.Replace(url, "#", strconv.Itoa(i), 1)
-		fmt.Print("Kall mot meny " + strconv.Itoa(i))
+
 		response, _ := http.Get(url)
 
 		bodyBytes, _ := ioutil.ReadAll(response.Body)
@@ -67,23 +67,6 @@ func (m Meny) ReturnProducts(docs []*goquery.Document) []Interfaces.Product {
 		})
 	}
 
-	// for _, link := range links {
-	// 	wg.Add(1)
-	// 	go visitProduct(link, &wg, chanProd)
-	// }
-
-	// for i := 0; i < len(links); i++ {
-	// 	res, ok := <-chanProd
-	// 	if ok == false {
-	// 		break
-	// 	}
-	// 	if (Interfaces.Product{}) != res {
-	// 		products = append(products, res)
-	// 	} else {
-	// 		fmt.Print(res)
-	// 	}
-	// }
-
 	return products
 }
 
@@ -106,11 +89,7 @@ func visitProduct(link string) Interfaces.Product {
 		fmt.Print(response.StatusCode)
 	}
 
-	//art := strings.TrimSpace(doc.Find(".cw-product-detail__title").Text())
-	//txt := strings.Split(art, "\n")
-
 	product.Name = Util.TrimArticleText(doc.Find(".cw-product-detail__title").Text())
-	//string(txt[0]) + string(" - ") + string(txt[2])
 
 	kroner := doc.Find(".cw-product__prices .cw-product__price__main").First().Text()
 	ore := doc.Find(".cw-product__prices .cw-product__price__cents").First().Text()
@@ -126,13 +105,6 @@ func visitProduct(link string) Interfaces.Product {
 	ean := strings.Split(link, "-")
 
 	product.Ean = ean[len(ean)-1]
-
-	// doc.Find("meta").Each(func(i int, s *goquery.Selection) {
-	// 	if name, _ := s.Attr("property"); name == "og:image" {
-	// 		img, _ := s.Attr("content")
-	// 		product.Img = img
-	// 	}
-	// })
 
 	return product
 }
